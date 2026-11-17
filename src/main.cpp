@@ -1,3 +1,7 @@
+// RWB JANINE / AIR WERK - V4 conservative performance cleanup
+// Preserves Trijekt CAN mapping, 19-byte ESP-NOW packet, LVGL object names,
+// Nixie UART protocol and menu actions. Hardware build not verified.
+
 
 #include <Arduino.h>
 #include <esp_display_panel.hpp>
@@ -42,7 +46,7 @@ LV_FONT_DECLARE(ui_font_Hollow38);
 
 // Required by existing generated screens.c
 extern "C" {
-    bool TEST_MODE = false;
+    bool TEST_MODE = true; // EEZ UI linkage flag, NOT ECU simulation
 }
 
 // ============================================================
@@ -66,7 +70,16 @@ static constexpr uint32_t DEBUG_INTERVAL_MS = 1000;
 static constexpr uint32_t CAN_DEBUG_INTERVAL_MS = 5000;
 
 static constexpr uint16_t MAX_RPM = 8000;
-static constexpr int CAN_BATCH_SIZE = 512;
+// TEMPORARY DISPLAY DEMO. Set false for real driving.
+// Simulation removed: real Trijekt CAN only.
+
+// Limit each loop's CAN work so the touchscreen and ESP-NOW stay responsive.
+static constexpr int CAN_BATCH_SIZE = 96;
+static constexpr uint32_t CAN_TIME_BUDGET_US = 2000;
+// Change these to true when diagnosing a CAN problem.
+static constexpr bool PRINT_LIVE_VALUES = true;
+static constexpr bool PRINT_CAN_DIAGNOSTICS = false;
+static constexpr bool PRINT_LAMBDA_RAW = false;
 static constexpr int CAN_VALUE_COUNT = 20;
 
 // ============================================================
@@ -219,7 +232,7 @@ static Mode2Layout mode2Layout[CAN_VALUE_COUNT] = {
     { true,   20, 275, "E-Gas"       },
     { true,   20, 310, "E-Target"    },
     { true,   20, 345, "Engine Temp" },
-    { true,   20, 380, "Air Temp"    },
+    { false,  20, 380, "Air Temp"    }, // Hidden from Mode 2 screen
 
     // ========================================================
     // RIGHT COLUMN
@@ -709,7 +722,7 @@ void decodeCANMessage(const twai_message_t &m)
 
             // Diagnose: CAN ID 705 (decimal) raw Lambda payload.
             static uint32_t lastLambdaDebugMs = 0;
-            if (now - lastLambdaDebugMs >= 1000) {
+            if (PRINT_LAMBDA_RAW && now - lastLambdaDebugMs >= 1000) {
                 Serial.printf(
                     "LAMBDA CAN ID=%lu RAW=%02X %02X %02X %02X %02X %02X %02X %02X | L1=%.3f L2=%.3f\n",
                     (unsigned long)m.identifier,
@@ -794,6 +807,8 @@ void updateECUHousekeeping()
     if (!rpmFresh)
         ecu.rpm = 0;
 }
+
+// ECU simulation removed. All dashboard values come from received CAN frames.
 
 // ============================================================
 // ORIGINAL MODE 1 DASHBOARD FUNCTIONS
@@ -1079,6 +1094,12 @@ extern "C" void open_trijekt_mode2(void)
     if (airScreen) {
         lv_scr_load(airScreen);
     }
+}
+
+/* Direct ECU values navigation from RWB dashboard touch button. */
+extern "C" void open_trijekt_mode3(void)
+{
+    if (canScreen) lv_scr_load(canScreen);
 }
 
 extern "C" void open_trijekt_mode1(void)
@@ -1787,9 +1808,8 @@ static const char *airActions[] = {
 static void airCmd(const String &s) {
  if (AIRWERK_UART_ENABLED) {
   airSerial.println(s);
-  airSerial.flush();
-  if (s == "MODE:CLOCK") { airSerial.println("DOTS:ON"); airSerial.flush(); }
-  Serial.printf("AIR WERK RS485 TX: %s\n", s.c_str());
+  if (s == "MODE:CLOCK") { airSerial.println("DOTS:ON"); }
+  // TX tracing disabled to avoid serial log overhead during animations.
  } else {
   Serial.printf("AIR WERK RS485 DISABLED: %s\n", s.c_str());
  }
@@ -1798,7 +1818,7 @@ static void airDisplay(const char *digits) { if(strcmp(airDigits,digits)!=0) { s
 static void airSave() { airPrefs.putBool("led",airLed); airPrefs.putBool("buzzer",airBuzz); airPrefs.putBool("autocine",airAuto); airPrefs.putUChar("color",airColor); airPrefs.putUChar("ledbright",airLedBright); airPrefs.putUChar("tube",airTubeBright); }
 static void airStopSW();
 static void airSetClock() { airStopSW(); airAnimating=false; airStopwatch=false; airECUMode=0; airFade=false; airClock=true; airCmd("MODE:CLOCK"); strcpy(airDigits,"------"); airLastCycle=millis(); }
-static void airStartAnimation(uint8_t style) { airAnimating=true; airAnimStyle=0; airClock=false; airStopwatch=false; airECUMode=0; airFade=false; airLed=false; airAnimStart=millis(); airLastFrame=0; airLastPulse=-1; airCmd("LED:OFF"); airCmd(String("NIXIE:BRIGHT:")+airTubeBright); strcpy(airDigits,"------"); }
+static void airStartAnimation(uint8_t style) { airAnimating=true; airAnimStyle=style; airClock=false; airStopwatch=false; airECUMode=0; airFade=false; airLed=false; airAnimStart=millis(); airLastFrame=0; airLastPulse=-1; airCmd("LED:OFF"); airCmd(String("NIXIE:BRIGHT:")+airTubeBright); strcpy(airDigits,"------"); }
 static uint32_t airSWMillis() { return airSWBase+(airSWRun ? millis()-airSWStart : 0); }
 static void airStopSW() { if(airSWRun) airSWBase+=millis()-airSWStart; airSWRun=false; }
 static void airUpdateStatus() {
@@ -2054,6 +2074,7 @@ void setup()
     Serial.println("MODE 1 / MODE 2");
     Serial.println("HOLLOW22 FONT");
     Serial.println("REAL CAN - NO SIMULATION");
+    Serial.println("NIXIE: RS485 UART 9600 8N1; ESP-NOW: channel 1");
     Serial.println("====================================");
 
     // ========================================================
@@ -2117,8 +2138,7 @@ void setup()
     airCreateScreen();
 
     // Connect MODE 1 navigation button to MODE 2 Nixie
-    bool mode2Found =
-        findAndAttachMode2(originalScreen);
+    bool mode2Found = true; // screens.c already binds NIXIE/MODE 2 directly
 
     if (!mode2Found) {
 
@@ -2191,8 +2211,11 @@ void loop()
     if (can_ok) {
 
         twai_message_t msg;
+        const uint32_t canStartUs = micros();
 
         for (int i = 0; i < CAN_BATCH_SIZE; i++) {
+            if ((uint32_t)(micros() - canStartUs) >= CAN_TIME_BUDGET_US)
+                break;
 
             esp_err_t result = twai_receive(
                 &msg,
@@ -2213,6 +2236,19 @@ void loop()
     // ========================================================
 
     updateECUHousekeeping();
+
+    // Explicitly report CAN reception loss during hardware testing.
+    static uint32_t lastCANHealthLog = 0;
+    if (millis() - lastCANHealthLog >= 5000) {
+        lastCANHealthLog = millis();
+        Serial.printf("CAN frames=%lu | RPM fresh=%s | ESP-NOW=%s | Nixie UART=%s\n",
+            (unsigned long)totalCANFrames,
+            ecu.data_valid ? "YES" : "NO",
+            espnow_ready ? "READY" : "ERROR",
+            AIRWERK_UART_ENABLED ? "ENABLED" : "DISABLED");
+    }
+
+    // Real CAN only: no simulated ECU values are injected.
 
     // ========================================================
     // 3. UPDATE LVGL
@@ -2256,6 +2292,7 @@ void loop()
     // 4. ESP-NOW
     // ========================================================
 
+    // Send only real, freshness-checked ECU data.
     sendEspNowValues();
 
     // ========================================================
@@ -2266,7 +2303,7 @@ void loop()
 
     now = millis();
 
-    if (now - lastDebug >= DEBUG_INTERVAL_MS) {
+    if (PRINT_LIVE_VALUES && now - lastDebug >= DEBUG_INTERVAL_MS) {
 
         printAllValues();
 
@@ -2280,6 +2317,7 @@ void loop()
     now = millis();
 
     if (
+        PRINT_CAN_DIAGNOSTICS &&
         now - canLastReportMs >=
         CAN_DEBUG_INTERVAL_MS
     ) {

@@ -1,17 +1,3 @@
-# PlatformIO build folder
 .pio/
-
-# VS Code settings (optional)
-.vscode/
-
-# OS generated files
+.vscode/.browse.c_cpp.db*
 .DS_Store
-Thumbs.db
-
-# Logs
-*.log
-
-# Temporary files
-*.tmp
-*.temp
-ui/.slproject/
