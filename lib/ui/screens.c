@@ -3,6 +3,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <math.h>
+#include <string.h>
 #include "screens.h"
 #include "images.h"
 #include "fonts.h"
@@ -33,6 +34,28 @@ static int last_tach_active = -1;
 static lv_obj_t *rpm_pointer = NULL;
 static lv_point_t rpm_pointer_points[2];
 
+/* Chrome RPM entrance: slide upward whenever the dashboard opens.
+   Subsequent CAN RPM updates change the text without restarting movement. */
+#define RPM_LABEL_Y 155
+#define RPM_RISE_PIXELS 35
+static void rpm_anim_y(void *obj, int32_t y) {
+    lv_obj_set_y((lv_obj_t *)obj, (lv_coord_t)y);
+}
+static void rpm_start_entrance(void) {
+    if (!objects.label_rpm) return;
+    lv_anim_del(objects.label_rpm, rpm_anim_y);
+    lv_obj_set_y(objects.label_rpm, RPM_LABEL_Y + RPM_RISE_PIXELS);
+    lv_anim_t anim;
+    lv_anim_init(&anim);
+    lv_anim_set_var(&anim, objects.label_rpm);
+    lv_anim_set_exec_cb(&anim, rpm_anim_y);
+    lv_anim_set_values(&anim, RPM_LABEL_Y + RPM_RISE_PIXELS, RPM_LABEL_Y);
+    lv_anim_set_time(&anim, 650);
+    lv_anim_set_delay(&anim, 180);
+    lv_anim_set_path_cb(&anim, lv_anim_path_ease_out);
+    lv_anim_start(&anim);
+}
+
 static lv_obj_t *make_label(lv_obj_t *parent, const char *s, int x, int y,
                             int w, const lv_font_t *font, uint32_t color) {
     lv_obj_t *l = lv_label_create(parent);
@@ -62,10 +85,13 @@ static void animate_from_center(lv_obj_t *o, int end_x, uint32_t delay) {
 }
 
 static void screen_event(lv_event_t *e) {
-    if (lv_event_get_code(e) == LV_EVENT_SCREEN_LOADED && !entrance_done) {
-        entrance_done = true;
-        animate_from_center(battery_value, 164, 200);
-        animate_from_center(temp_value, 551, 200);
+    if (lv_event_get_code(e) == LV_EVENT_SCREEN_LOADED) {
+        rpm_start_entrance();
+        if (!entrance_done) {
+            entrance_done = true;
+            animate_from_center(battery_value, 164, 200);
+            animate_from_center(temp_value, 551, 200);
+        }
     }
 }
 
@@ -201,7 +227,7 @@ void create_screen_main(void) {
     lv_obj_set_style_pad_all(objects.container_gauge, 0, LV_PART_MAIN);
     lv_obj_clear_flag(objects.container_gauge, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
 
-    objects.label_rpm = make_label(objects.container_gauge, "0000", 197, 155, 406,
+    objects.label_rpm = make_label(objects.container_gauge, "0000", 197, RPM_LABEL_Y, 406,
                                   &ui_font_km_136, 0xF5F6FA);
     objects.arc_rpm_0_40 = lv_arc_create(root);
     lv_arc_set_range(objects.arc_rpm_0_40, 0, 4000);
