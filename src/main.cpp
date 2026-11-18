@@ -1944,39 +1944,76 @@ static void airCreateScreen() {
 // WiFiManager runs only when requested from MENU 3.  WiFi and ESP-NOW
 // share one radio: while WiFi setup/connection is active, ESP-NOW channel-1
 // broadcasting is deliberately suspended. CAN and Nixie UART continue.
+// WiFiManager on-demand portal. ESP-NOW must be stopped before switching radio modes.
 static void airWifiStart() {
- if (airWifiPortal || airWifiConnected) {
-  Serial.println("AIR WERK WIFI: already active; STOP to return to ESP-NOW");
+ if (airWifiPortal) {
+  Serial.println("AIR WERK WIFI: portal already active");
   return;
  }
+ if (airWifiConnected) {
+  Serial.println("AIR WERK WIFI: already connected; press WIFI SETUP - STOP first");
+  return;
+ }
+ Serial.println("[AIR WERK WIFI] Switching ESP-NOW radio to configuration AP");
  espnow_enabled = false;
  if (espnow_ready) { esp_now_deinit(); espnow_ready = false; }
- WiFi.mode(WIFI_STA);
+ // Remove the fixed ESP-NOW channel and any pending station connection.
+ WiFi.setAutoReconnect(false);
+ WiFi.disconnect(false, false);
+ WiFi.softAPdisconnect(true);
+ WiFi.mode(WIFI_OFF);
+ delay(150);
+ WiFi.mode(WIFI_AP_STA);
+ delay(150);
+ airWiFiManager.setDebugOutput(true);
  airWiFiManager.setConfigPortalBlocking(false);
  airWiFiManager.setConfigPortalTimeout(0);
- airWiFiManager.startConfigPortal("AIR-WERK-SETUP", "airwerk911");
- airWifiPortal = true;
- Serial.println("WIFI SETUP: connect to AIR-WERK-SETUP, password airwerk911, open 192.168.4.1");
+ airWiFiManager.setWiFiAPChannel(1);
+ airWiFiManager.setWiFiAPHidden(false);
+ airWiFiManager.setAPStaticIPConfig(IPAddress(192,168,4,1), IPAddress(192,168,4,1), IPAddress(255,255,255,0));
+ // In non-blocking mode, a false return does NOT indicate AP startup failure.
+ airWiFiManager.startConfigPortal("AIR-WERK-SETUP", "");
+ airWifiPortal = airWiFiManager.getConfigPortalActive();
+ Serial.printf("[AIR WERK WIFI] portal=%d AP mode=%d AP SSID=%s AP IP=%s clients=%d\n",
+               (int)airWifiPortal, (int)WiFi.getMode(), WiFi.softAPSSID().c_str(),
+               WiFi.softAPIP().toString().c_str(), WiFi.softAPgetStationNum());
+ if (!airWifiPortal || WiFi.softAPIP() == IPAddress(0,0,0,0)) {
+  Serial.println("[AIR WERK WIFI] ERROR: SoftAP not started; check WiFiManager debug above");
+ } else {
+  Serial.println("[AIR WERK WIFI] Connect to AIR-WERK-SETUP / password airwerk911 / http://192.168.4.1");
+ }
 }
 static void airWifiStop() {
- if (airWifiPortal) { airWiFiManager.stopConfigPortal(); airWifiPortal = false; }
- WiFi.disconnect(true, false);
- WiFi.mode(WIFI_STA);
+ if (airWiFiManager.getConfigPortalActive()) airWiFiManager.stopConfigPortal();
+ airWifiPortal = false;
  airWifiConnected = false;
+ WiFi.disconnect(false, false);
+ WiFi.softAPdisconnect(true);
+ WiFi.mode(WIFI_OFF);
+ delay(100);
+ WiFi.mode(WIFI_STA);
+ WiFi.setAutoReconnect(false);
  espnow_ready = false;
  espnow_enabled = true;
  if (!espnow_init_simple()) Serial.println("ESP-NOW restore failed");
  Serial.println("WIFI setup stopped; ESP-NOW channel 1 restored");
 }
 static void airWifiTick() {
- if (airWifiPortal) {
-  airWiFiManager.process();
-  if (WiFi.status() == WL_CONNECTED) {
-   airWifiConnected = true;
-   airWifiPortal = false;
-   Serial.printf("WIFI CONNECTED: %s\n", WiFi.localIP().toString().c_str());
-   // ESP-NOW remains off until WIFI SETUP - STOP is tapped.
-  }
+ if (!airWifiPortal) return;
+ airWiFiManager.process();
+ static uint32_t lastWifiDiag = 0;
+ if (millis() - lastWifiDiag > 5000) {
+  lastWifiDiag = millis();
+  Serial.printf("[AIR WERK WIFI] AP=%s IP=%s clients=%d STA=%d portal=%d\n",
+                WiFi.softAPSSID().c_str(), WiFi.softAPIP().toString().c_str(),
+                WiFi.softAPgetStationNum(), (int)WiFi.status(),
+                (int)airWiFiManager.getConfigPortalActive());
+ }
+ if (WiFi.status() == WL_CONNECTED) {
+  airWifiConnected = true;
+  airWifiPortal = false;
+  Serial.printf("WIFI CONNECTED: %s\n", WiFi.localIP().toString().c_str());
+  // ESP-NOW stays disabled until WIFI SETUP - STOP is selected.
  }
 }
 static void airInit() {

@@ -1,12 +1,19 @@
 /* RWB JANINE - exact artwork as RGB565 LVGL background, LVGL 8.4, 800x480.
    Retains EEZ objects and the MODE 2 navigation label expected by main.cpp. */
+
+
+
+
 #include <stdbool.h>
 #include <stdint.h>
 #include <math.h>
 #include <string.h>
+#include <stdio.h>
+
 #include "screens.h"
 #include "images.h"
 #include "fonts.h"
+
 extern const lv_font_t ui_font_km_136;
 #include "actions.h"
 #include "vars.h"
@@ -34,26 +41,58 @@ static int last_tach_active = -1;
 static lv_obj_t *rpm_pointer = NULL;
 static lv_point_t rpm_pointer_points[2];
 
-/* Chrome RPM entrance: slide upward whenever the dashboard opens.
-   Subsequent CAN RPM updates change the text without restarting movement. */
+/* Four fixed RPM digit slots. Keep objects.label_rpm as the live-data source. */
 #define RPM_LABEL_Y 135
 #define RPM_RISE_PIXELS 65
+#define RPM_DIGIT_X 185
+#define RPM_DIGIT_STEP 108
+#define RPM_DIGIT_WIDTH 112
+static lv_obj_t *rpm_digits[4] = {NULL, NULL, NULL, NULL};
+static char rpm_previous[5] = "";
 static void rpm_anim_y(void *obj, int32_t y) {
     lv_obj_set_y((lv_obj_t *)obj, (lv_coord_t)y);
 }
-static void rpm_start_entrance(void) {
+static void rpm_sync_digits(lv_timer_t *timer) {
+    (void)timer;
     if (!objects.label_rpm) return;
-    lv_anim_del(objects.label_rpm, rpm_anim_y);
-    lv_obj_set_y(objects.label_rpm, RPM_LABEL_Y + RPM_RISE_PIXELS);
-    lv_anim_t anim;
-    lv_anim_init(&anim);
-    lv_anim_set_var(&anim, objects.label_rpm);
-    lv_anim_set_exec_cb(&anim, rpm_anim_y);
-    lv_anim_set_values(&anim, RPM_LABEL_Y + RPM_RISE_PIXELS, RPM_LABEL_Y);
-    lv_anim_set_time(&anim, 1650);
-    lv_anim_set_delay(&anim, 580);
-    lv_anim_set_path_cb(&anim, lv_anim_path_ease_out);
-    lv_anim_start(&anim);
+    const char *s = lv_label_get_text(objects.label_rpm);
+    if (!s) return;
+    /* Preserve leading zeros and show exactly four fixed-position digits. */
+    char formatted[5] = "0000";
+    unsigned long value = 0;
+    bool found = false;
+    for (const char *p = s; *p; ++p) {
+        if (*p >= '0' && *p <= '9') {
+            found = true;
+            value = (value * 10 + (unsigned long)(*p - '0')) % 10000UL;
+        }
+    }
+    if (!found) return;
+    snprintf(formatted, sizeof(formatted), "%04lu", value);
+    if (strcmp(formatted, rpm_previous) == 0) return;
+    memcpy(rpm_previous, formatted, sizeof(formatted));
+    for (int i = 0; i < 4; ++i) {
+        if (rpm_digits[i]) {
+            char digit[2] = {formatted[i], '\0'};
+            lv_label_set_text(rpm_digits[i], digit);
+        }
+    }
+}
+static void rpm_start_entrance(void) {
+    for (int i = 0; i < 4; ++i) {
+        if (!rpm_digits[i]) continue;
+        lv_anim_del(rpm_digits[i], rpm_anim_y);
+        lv_obj_set_y(rpm_digits[i], RPM_LABEL_Y + RPM_RISE_PIXELS);
+        lv_anim_t anim;
+        lv_anim_init(&anim);
+        lv_anim_set_var(&anim, rpm_digits[i]);
+        lv_anim_set_exec_cb(&anim, rpm_anim_y);
+        lv_anim_set_values(&anim, RPM_LABEL_Y + RPM_RISE_PIXELS, RPM_LABEL_Y);
+        lv_anim_set_time(&anim, 1650);
+        lv_anim_set_delay(&anim, 580);
+        lv_anim_set_path_cb(&anim, lv_anim_path_ease_out);
+        lv_anim_start(&anim);
+    }
 }
 
 static lv_obj_t *make_label(lv_obj_t *parent, const char *s, int x, int y,
@@ -229,6 +268,18 @@ void create_screen_main(void) {
 
     objects.label_rpm = make_label(objects.container_gauge, "0000", 197, RPM_LABEL_Y, 406,
                                   &ui_font_km_136, 0xF5F6FA);
+    /* Existing mock_data.cpp/main.cpp still updates objects.label_rpm.
+       Hide its pixels but retain its text as the authoritative RPM value. */
+    lv_obj_set_style_text_opa(objects.label_rpm, LV_OPA_TRANSP, LV_PART_MAIN);
+    for (int i = 0; i < 4; ++i) {
+        rpm_digits[i] = make_label(objects.container_gauge, "0",
+                                   RPM_DIGIT_X + i * RPM_DIGIT_STEP,
+                                   RPM_LABEL_Y, RPM_DIGIT_WIDTH,
+                                   &ui_font_km_136, 0xF5F6FA);
+        lv_obj_clear_flag(rpm_digits[i], LV_OBJ_FLAG_CLICKABLE);
+    }
+    lv_timer_create(rpm_sync_digits, 35, NULL);
+
     objects.arc_rpm_0_40 = lv_arc_create(root);
     lv_arc_set_range(objects.arc_rpm_0_40, 0, 4000);
     lv_obj_add_flag(objects.arc_rpm_0_40, LV_OBJ_FLAG_HIDDEN);
