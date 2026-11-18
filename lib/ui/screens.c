@@ -36,7 +36,7 @@ static lv_point_t rpm_pointer_points[2];
 
 /* Chrome RPM entrance: slide upward whenever the dashboard opens.
    Subsequent CAN RPM updates change the text without restarting movement. */
-#define RPM_LABEL_Y 155
+#define RPM_LABEL_Y 135
 #define RPM_RISE_PIXELS 65
 static void rpm_anim_y(void *obj, int32_t y) {
     lv_obj_set_y((lv_obj_t *)obj, (lv_coord_t)y);
