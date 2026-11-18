@@ -37,7 +37,7 @@ static lv_point_t rpm_pointer_points[2];
 /* Chrome RPM entrance: slide upward whenever the dashboard opens.
    Subsequent CAN RPM updates change the text without restarting movement. */
 #define RPM_LABEL_Y 155
-#define RPM_RISE_PIXELS 35
+#define RPM_RISE_PIXELS 65
 static void rpm_anim_y(void *obj, int32_t y) {
     lv_obj_set_y((lv_obj_t *)obj, (lv_coord_t)y);
 }
@@ -50,8 +50,8 @@ static void rpm_start_entrance(void) {
     lv_anim_set_var(&anim, objects.label_rpm);
     lv_anim_set_exec_cb(&anim, rpm_anim_y);
     lv_anim_set_values(&anim, RPM_LABEL_Y + RPM_RISE_PIXELS, RPM_LABEL_Y);
-    lv_anim_set_time(&anim, 650);
-    lv_anim_set_delay(&anim, 180);
+    lv_anim_set_time(&anim, 1650);
+    lv_anim_set_delay(&anim, 580);
     lv_anim_set_path_cb(&anim, lv_anim_path_ease_out);
     lv_anim_start(&anim);
 }
@@ -244,14 +244,14 @@ void create_screen_main(void) {
     lv_obj_set_style_pad_all(objects.container_throttle, 0, LV_PART_MAIN);
     lv_obj_clear_flag(objects.container_throttle, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
 
-    objects.label_batt = make_label(objects.container_throttle, "--.- V", 164, 370, 172,
-                                    &ui_font_Hollow38, 0xFFFFFF);
-    objects.label_throttle = make_label(objects.container_throttle, "--.- C", 551, 370, 185,
-                                        &ui_font_Hollow38, 0xFFFFFF);
+    objects.label_batt = make_label(objects.container_throttle, "--.- V", 164, 340, 172,
+                                    &ui_font_Hollow85, 0xFFFFFF);
+    objects.label_throttle = make_label(objects.container_throttle, "--.- C", 551, 340, 185,
+                                        &ui_font_Hollow85, 0xFFFFFF);
     battery_value = objects.label_batt;
     temp_value = objects.label_throttle;
     objects.label_lambda = make_label(objects.container_throttle, "", 0, 0, 1,
-                                      &ui_font_Hollow38, 0xFFFFFF);
+                                      &ui_font_Hollow85, 0xFFFFFF);
     lv_obj_add_flag(objects.label_lambda, LV_OBJ_FLAG_HIDDEN);
 
     /* Two low-profile visible controls on the bottom carbon area.
