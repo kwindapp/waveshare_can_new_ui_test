@@ -21,8 +21,10 @@ extern const lv_font_t ui_font_km_136;
 #include "ui.h"
 
 LV_IMG_DECLARE(rwb_janine_bg);
+LV_IMG_DECLARE(rwb_janine_bg_chrome);
 LV_FONT_DECLARE(ui_font_Hollow85);
 LV_FONT_DECLARE(ui_font_Hollow38);
+LV_FONT_DECLARE(ui_font_Hollow22);
 extern bool TEST_MODE;
 extern void open_trijekt_mode2(void);
 extern void open_trijekt_mode3(void);
@@ -38,6 +40,13 @@ static lv_obj_t *battery_value = NULL;
 static lv_obj_t *temp_value = NULL;
 static bool entrance_done = false;
 static int last_tach_active = -1;
+static lv_obj_t *background_img = NULL;
+static bool chrome_background = false;
+static lv_obj_t *nav_buttons[4] = {NULL, NULL, NULL, NULL};
+static lv_obj_t *nav_labels[4] = {NULL, NULL, NULL, NULL};
+static lv_obj_t *nav_faces[4] = {NULL, NULL, NULL, NULL};
+static const uint32_t nav_accents[4] = {0x22DFFF, 0x22DFFF, 0xFF3752, 0xFF9A35};
+static void update_nav_appearance(void);
 static lv_obj_t *rpm_pointer = NULL;
 static lv_point_t rpm_pointer_points[2];
 
@@ -134,6 +143,24 @@ static void screen_event(lv_event_t *e) {
     }
 }
 
+/* Tap the background artwork to switch between original and chrome. */
+static void apply_background(void) {
+    /* Chrome artwork: lift battery and temperature readouts by 50 px. */
+    if (battery_value) lv_obj_set_y(battery_value, chrome_background ? 310 : 340);
+    if (temp_value) lv_obj_set_y(temp_value, chrome_background ? 310 : 340);
+    update_nav_appearance();
+    if (background_img) {
+        lv_img_set_src(background_img,
+                       chrome_background ? &rwb_janine_bg_chrome : &rwb_janine_bg);
+    }
+}
+static void background_tap_event(lv_event_t *e) {
+    if (lv_event_get_code(e) != LV_EVENT_CLICKED) return;
+    chrome_background = !chrome_background;
+    active_theme_index = chrome_background ? 1 : 0;
+    apply_background();
+}
+
 static void nav_event(lv_event_t *e) {
     if (lv_event_get_code(e) == LV_EVENT_CLICKED) open_trijekt_mode2();
 }
@@ -180,36 +207,66 @@ static void touch_nav_event(lv_event_t *e) {
     else if (target == 3) open_trijekt_mode3();
 }
 
+/* Wide invisible touch targets; artwork-matched button faces on original bg only. */
+static void update_nav_appearance(void) {
+    for (int i = 0; i < 4; ++i) {
+        lv_obj_t *face = nav_faces[i];
+        lv_obj_t *label = nav_labels[i];
+        if (!face || !label) continue;
+        /* Always transparent: the outer hit area handles the touch. */
+        lv_obj_set_style_bg_opa(face, LV_OPA_TRANSP, 0);
+        lv_obj_set_style_border_width(face, 0, 0);
+        lv_obj_set_style_border_opa(face, LV_OPA_TRANSP, 0);
+        lv_obj_set_style_shadow_width(face, 0, 0);
+        lv_obj_set_style_shadow_opa(face, LV_OPA_TRANSP, 0);
+        lv_obj_set_style_text_font(label, &ui_font_Hollow38, 0);
+        lv_obj_set_style_text_color(label, lv_color_hex(0xF6F4EF), 0);
+        /* Original bg: floating text only. Chrome: fully invisible. */
+        lv_obj_set_style_text_opa(label,
+            chrome_background ? LV_OPA_TRANSP : LV_OPA_COVER, 0);
+        lv_obj_center(label);
+    }
+}
+
 static void make_touch_button(lv_obj_t *root, int x, int target, const char *title,
                               const char *sub, uint32_t accent) {
-    lv_obj_t *b = lv_btn_create(root);
-    lv_obj_set_pos(b, x, 439);
-    lv_obj_set_size(b, 146, 35);
-    lv_obj_set_style_radius(b, 9, LV_PART_MAIN);
-    lv_obj_set_style_bg_color(b, lv_color_hex(0x080D16), LV_PART_MAIN);
-    lv_obj_set_style_bg_opa(b, LV_OPA_90, LV_PART_MAIN);
-    lv_obj_set_style_border_width(b, 1, LV_PART_MAIN);
-    lv_obj_set_style_border_color(b, lv_color_hex(accent), LV_PART_MAIN);
-    lv_obj_set_style_shadow_width(b, 7, LV_PART_MAIN);
-    lv_obj_set_style_shadow_color(b, lv_color_hex(accent), LV_PART_MAIN);
-    lv_obj_set_style_shadow_opa(b, LV_OPA_30, LV_PART_MAIN);
-    lv_obj_set_style_bg_color(b, lv_color_hex(accent), LV_PART_MAIN | LV_STATE_PRESSED);
-    lv_obj_set_style_bg_opa(b, LV_OPA_50, LV_PART_MAIN | LV_STATE_PRESSED);
-    lv_obj_set_style_pad_all(b, 0, LV_PART_MAIN);
-    lv_obj_add_event_cb(b, touch_nav_event, LV_EVENT_CLICKED, (void *)(intptr_t)target);
-    lv_obj_t *l = lv_label_create(b);
-    lv_label_set_text(l, title);
-    lv_obj_set_style_text_font(l, &ui_font_t20, LV_PART_MAIN);
-    lv_obj_set_style_text_color(l, lv_color_white(), LV_PART_MAIN);
-    lv_obj_center(l);
-    /* Keep a searchable MODE 2 label for the existing main.cpp hook.
-       It is hidden, but the parent button is already wired directly. */
+    /* Entire 174x51 zone is clickable; the 158x34 face sits neatly inside. */
+    lv_obj_t *hit = lv_obj_create(root);
+    lv_obj_remove_style_all(hit);
+    lv_obj_set_pos(hit, x, 428);
+    lv_obj_set_size(hit, 174, 52);
+    lv_obj_set_style_pad_all(hit, 0, 0);
+    lv_obj_clear_flag(hit, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_add_flag(hit, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_event_cb(hit, touch_nav_event, LV_EVENT_CLICKED, (void *)(intptr_t)target);
+
+    lv_obj_t *face = lv_obj_create(hit);
+    lv_obj_remove_style_all(face);
+    lv_obj_set_pos(face, 8, 8);
+    lv_obj_set_size(face, 158, 34);
+    lv_obj_clear_flag(face, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_set_style_pad_all(face, 0, 0);
+
+    lv_obj_t *label = lv_label_create(face);
+    lv_label_set_text(label, title);
+    lv_obj_set_style_text_font(label, &ui_font_Hollow22, 0);
+    lv_obj_clear_flag(label, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_center(label);
+
+    /* Keep MODE 2 text discoverable for the existing main.cpp hook. */
     if (target == 2) {
-        lv_obj_t *compat = lv_label_create(b);
+        lv_obj_t *compat = lv_label_create(hit);
         lv_label_set_text(compat, "MODE 2");
-        lv_obj_add_flag(compat, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_set_style_text_opa(compat, LV_OPA_TRANSP, 0);
+        lv_obj_clear_flag(compat, LV_OBJ_FLAG_CLICKABLE);
+    }
+    if (target >= 1 && target <= 4) {
+        nav_buttons[target - 1] = hit;
+        nav_faces[target - 1] = face;
+        nav_labels[target - 1] = label;
     }
     (void)sub;
+    (void)accent;
 }
 
 void create_screen_main(void) {
@@ -223,9 +280,11 @@ void create_screen_main(void) {
     lv_obj_add_event_cb(root, screen_event, LV_EVENT_SCREEN_LOADED, NULL);
 
     lv_obj_t *background = lv_img_create(root);
-    lv_img_set_src(background, &rwb_janine_bg);
+    background_img = background;
+    apply_background();
     lv_obj_set_pos(background, 0, 0);
-    lv_obj_clear_flag(background, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_flag(background, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_event_cb(background, background_tap_event, LV_EVENT_CLICKED, NULL);
 
     /* Live tachometer overlay approximates the upper curved scale in the artwork. */
     for (int i = 0; i < TACH_SEGMENTS; ++i) {
@@ -301,22 +360,25 @@ void create_screen_main(void) {
                                         &ui_font_Hollow85, 0xFFFFFF);
     battery_value = objects.label_batt;
     temp_value = objects.label_throttle;
+    apply_background();
     objects.label_lambda = make_label(objects.container_throttle, "", 0, 0, 1,
                                       &ui_font_Hollow85, 0xFFFFFF);
     lv_obj_add_flag(objects.label_lambda, LV_OBJ_FLAG_HIDDEN);
 
-    /* Two low-profile visible controls on the bottom carbon area.
-       They do not cover the battery/temperature panels. */
-    make_touch_button(root, 12, 1, "MODE 1", "DASH", 0x22DFFF);
-    make_touch_button(root, 244, 2, "NIXIE", "MODE 2", 0x22DFFF);
-    make_touch_button(root, 410, 3, "ECU DATA", "MODE 3", 0xFF3752);
-    make_touch_button(root, 642, 4, "MODE 2", "NIXIE", 0xFF9A35);
+    /* Invisible but active touch zones at the original button positions. */
+    make_touch_button(root, 0, 1, "MODE 1", "DASH", 0x22DFFF);
+    make_touch_button(root, 208, 2, "NIXIE", "MODE 2", 0x22DFFF);
+    make_touch_button(root, 416, 3, "ECU DATA", "MODE 3", 0xFF3752);
+    make_touch_button(root, 624, 4, "MODE 2", "NIXIE", 0xFF9A35);
+    update_nav_appearance();
 
 }
 
 void tick_screen_main(void) {}
 void change_color_theme(uint32_t theme_index) {
     active_theme_index = theme_index;
+    chrome_background = (theme_index % 2U) != 0U;
+    apply_background();
     if (objects.main) lv_obj_invalidate(objects.main);
 }
 typedef void (*tick_screen_func_t)(void);
