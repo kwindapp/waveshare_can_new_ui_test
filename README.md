@@ -1,6 +1,6 @@
 https://www.youtube.com/shorts/qLkxkjJyafg
 
-https://lvgl.io/tools/imageconverter  // lv8 ,true color, c array
+https://lvgl.io/tools/imageconverter  // lv8 ,true color, c array -> Convert
 
 
 https://www.dafont.com/hollow-point.font
