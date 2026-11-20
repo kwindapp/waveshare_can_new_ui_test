@@ -22,3 +22,7 @@ My goal is to eventually move the ECU display into the glovebox and show the mos
 <img width="1206" height="1097" alt="IMG_9426" src="https://github.com/user-attachments/assets/04b03d55-b352-485f-9699-31cbecad2bfe" />
 
 - add your CAN and create your UI with lvlg.io ................:-))
+- neutral frame no branding
+
+- <img width="1620" height="971" alt="Futuristic Chrome HUD with Neon Accents" src="https://github.com/user-attachments/assets/7b5a9dfe-a836-4857-ba93-14b4ff3e8b09" />
+
