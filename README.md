@@ -6,7 +6,7 @@ https://lvgl.io/tools/imageconverter  // lv8 ,true color, c array -> Convert
 https://www.dafont.com/hollow-point.font
 
 ***************************************###########
-ESP32-S3 4.3-inch Capacitive Touch Display Development Board 800×480 with Case Trijekt Can Bus RWB Porsche https://motorsteuerung-trijekt.de/de/downloads.php. 40 Euro CAN Touch Display https://www.waveshare.com/esp32-s3-touch-lcd-4.3b.htm Current ESP-NOW Transmission ECU Value Transmitted? Engine Speed (RPM)  Battery Voltage  Engine Temperature  Throttle Position  Accelerator Pedal Position  Function / Status Byte Yes Classic Display Nixie Transmission interval: Every 50 ms (20 updates per second)
+ESP32-S3 4.3-inch Capacitive Touch Display Development Board 800×480 with Case Trijekt Can Bus RWB Porsche https://motorsteuerung-trijekt.de/de/downloads.php. 50 Euro CAN Touch Display https://www.waveshare.com/esp32-s3-touch-lcd-4.3b.htm Current ESP-NOW Transmission ECU Value Transmitted? Engine Speed (RPM)  Battery Voltage  Engine Temperature  Throttle Position  Accelerator Pedal Position  Function / Status Byte Yes Classic Display Nixie Transmission interval: Every 50 ms (20 updates per second)
 
 Protocol: ESP-NOW Broadcast Currently, I have a CAN bus display in my RWB Porsche showing live ECU data, along with a separate ESP32 display featuring a digital and real Nixie clock.
 
