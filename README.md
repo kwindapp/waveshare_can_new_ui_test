@@ -11,6 +11,9 @@ ESP32-S3 4.3-inch Capacitive Touch Display Development Board 800×480 with Case 
 Protocol: ESP-NOW Broadcast Currently, I have a CAN bus display in my RWB Porsche showing live ECU data, along with a separate ESP32 display featuring a digital and real Nixie clock.
 
 My goal is to eventually move the ECU display into the glovebox and show the most important engine data directly on real Nixie tubes.
+
+- add your CAN and create your UI with lvlg.io ................:-))
+- 
 <img width="3023" height="1770" alt="IMG_9423" src="https://github.com/user-attachments/assets/c88b32ef-777b-49cc-a31e-c644dd825cba" />
 <img width="3023" height="1889" alt="IMG_9424" src="https://github.com/user-attachments/assets/8197049a-a26f-4eb3-af40-44da125e5199" />
 
