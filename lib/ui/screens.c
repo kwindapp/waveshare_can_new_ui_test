@@ -52,7 +52,7 @@ static lv_point_t rpm_pointer_points[2];
 
 /* Four fixed RPM digit slots. Keep objects.label_rpm as the live-data source. */
 #define RPM_LABEL_Y 135
-#define RPM_RISE_PIXELS 65
+#define RPM_RISE_PIXELS 100
 #define RPM_DIGIT_X 185
 #define RPM_DIGIT_STEP 108
 #define RPM_DIGIT_WIDTH 112
