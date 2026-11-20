@@ -26,5 +26,7 @@ My goal is to eventually move the ECU display into the glovebox and show the mos
 
 - <img width="1620" height="971" alt="Futuristic Chrome HUD with Neon Accents" src="https://github.com/user-attachments/assets/7b5a9dfe-a836-4857-ba93-14b4ff3e8b09" />
 <img width="1620" height="971" alt="Chrome Skull Interface with Molten Eyes" src="https://github.com/user-attachments/assets/7e8786dd-8dae-4b58-8d90-d134b877cb44" />
+<img width="1620" height="971" alt="Futuristic Chrome HUD with Orange Accents" src="https://github.com/user-attachments/assets/249bb9e3-e0e3-4a34-a3c8-f636580abce0" />
+
 
 
